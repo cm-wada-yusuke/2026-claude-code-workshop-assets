@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>博多→九大 通学時間ダッシュボード</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Hiragino Sans", "Noto Sans JP", sans-serif; background: #f5f7fa; color: #1a1a2e; line-height: 1.6; }
+
+  header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: #fff; padding: 24px 32px;
+  }
+  header h1 { font-size: 1.4rem; font-weight: 600; }
+  header p { font-size: 0.85rem; color: #8892b0; margin-top: 4px; }
+
+  .container { max-width: 860px; margin: 0 auto; padding: 24px 16px; }
+
+  /* --- Simulator --- */
+  .simulator {
+    background: #fff; border-radius: 12px; padding: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px;
+  }
+  .simulator-row {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .simulator label { font-size: 0.9rem; font-weight: 600; }
+  .simulator select {
+    font-size: 1rem; padding: 8px 12px; border: 2px solid #e2e8f0;
+    border-radius: 8px; background: #fff; cursor: pointer;
+  }
+  .simulator select:focus { outline: none; border-color: #4a6cf7; }
+  .result-card {
+    margin-top: 16px; padding: 20px; border-radius: 10px;
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    border-left: 4px solid #4a6cf7;
+  }
+  .result-card .departure { font-size: 1.5rem; font-weight: 700; color: #1e3a8a; }
+  .result-card .detail { font-size: 0.9rem; color: #475569; margin-top: 4px; }
+
+  /* --- Chart --- */
+  .chart-card {
+    background: #fff; border-radius: 12px; padding: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px;
+  }
+  .chart-card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; }
+  .chart-wrap { position: relative; height: 260px; }
+
+  /* --- Table --- */
+  .table-card {
+    background: #fff; border-radius: 12px; padding: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px;
+  }
+  .table-card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th { text-align: left; padding: 10px 12px; background: #f8fafc; color: #64748b; font-weight: 600; border-bottom: 2px solid #e2e8f0; }
+  td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
+  tr:last-child td { border-bottom: none; }
+  .total-row { font-weight: 700; background: #f8fafc; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .bar-cell { width: 120px; }
+  .bar { height: 8px; border-radius: 4px; background: #4a6cf7; }
+
+  .source { text-align: center; font-size: 0.75rem; color: #94a3b8; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>博多→九大 通学時間ダッシュボード</h1>
+  <p>国道202号 博多駅 → 九大伊都キャンパス（約22.8km）</p>
+</header>
+
+<div class="container">
+
+  <!-- Simulator -->
+  <section class="simulator">
+    <div class="simulator-row">
+      <label for="arrival">到着希望時刻:</label>
+      <select id="arrival">
+        <option value="7">7:00</option>
+        <option value="8">8:00</option>
+        <option value="9">9:00</option>
+        <option value="10" selected>10:00</option>
+        <option value="11">11:00</option>
+        <option value="12">12:00</option>
+        <option value="13">13:00</option>
+        <option value="14">14:00</option>
+        <option value="15">15:00</option>
+        <option value="16">16:00</option>
+        <option value="17">17:00</option>
+        <option value="18">18:00</option>
+      </select>
+    </div>
+    <div class="result-card">
+      <div class="departure" id="departure-text">8:32 頃に出発</div>
+      <div class="detail" id="detail-text">推定所要時間: 約88分（9時台の交通状況で算出）</div>
+    </div>
+  </section>
+
+  <!-- Chart -->
+  <section class="chart-card">
+    <h2>時間帯別 推定所要時間</h2>
+    <div class="chart-wrap">
+      <canvas id="chart"></canvas>
+    </div>
+  </section>
+
+  <!-- Table -->
+  <section class="table-card">
+    <h2>区間別 所要時間内訳</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>区間</th>
+          <th class="num">距離</th>
+          <th class="num">所要時間</th>
+          <th class="bar-cell"></th>
+        </tr>
+      </thead>
+      <tbody id="section-table"></tbody>
+    </table>
+  </section>
+
+  <p class="source">データ出典: 国土交通省「令和3年度 全国道路・街路交通情勢調査」福岡県</p>
+</div>
+
+<script>
+// --- Mock data (realistic based on actual CSV analysis) ---
+const mockData = {
+  sections: [
+    { name: "博多区（博多駅〜中央区境）",     dist: 2.0, congested: 11.5, free: 14.8 },
+    { name: "中央区（天神〜六本松）",          dist: 2.4, congested: 10.8, free: 13.5 },
+    { name: "城南区〜早良区（別府〜藤崎）",    dist: 2.4, congested: 15.9, free: 20.2 },
+    { name: "早良区〜西区（室見〜姪浜）",      dist: 2.5, congested: 17.2, free: 24.0 },
+    { name: "西区（姪浜〜今宿）",             dist: 3.4, congested: 16.5, free: 25.3 },
+    { name: "西区（今宿〜周船寺）",           dist: 2.5, congested: 19.8, free: 30.1 },
+    { name: "西区〜糸島市（周船寺〜波多江）",  dist: 3.8, congested: 16.2, free: 20.5 },
+    { name: "糸島市（波多江〜前原）",          dist: 3.8, congested: 18.5, free: 22.0 },
+  ],
+  // hourly travel time (up direction, minutes) keyed by hour
+  hourly: {
+    7:  { up: 95, down: 82, vol: 2008 },
+    8:  { up: 92, down: 85, vol: 2005 },
+    9:  { up: 88, down: 87, vol: 2009 },
+    10: { up: 76, down: 74, vol: 1816 },
+    11: { up: 70, down: 68, vol: 1703 },
+    12: { up: 66, down: 65, vol: 1691 },
+    13: { up: 65, down: 64, vol: 1532 },
+    14: { up: 66, down: 65, vol: 1533 },
+    15: { up: 68, down: 67, vol: 1692 },
+    16: { up: 72, down: 71, vol: 1731 },
+    17: { up: 80, down: 82, vol: 1859 },
+    18: { up: 78, down: 80, vol: 1540 },
+    19: { up: 70, down: 72, vol: 1164 },
+    20: { up: 66, down: 67, vol:  858 },
+    21: { up: 64, down: 64, vol:  631 },
+    22: { up: 62, down: 62, vol:  524 },
+  }
+};
+
+const totalDist = mockData.sections.reduce((s, sec) => s + sec.dist, 0);
+
+// --- Simulator ---
+function calcSectionTime(section, congestionRatio) {
+  const speed = section.free * (1 - congestionRatio) + section.congested * congestionRatio;
+  return (section.dist / speed) * 60;
+}
+
+function getCongestionRatio(hour) {
+  const h = mockData.hourly[hour];
+  if (!h) return 0.3;
+  const peak = Math.max(...Object.values(mockData.hourly).map(v => v.vol));
+  return h.vol / peak;
+}
+
+function update() {
+  const arrivalHour = parseInt(document.getElementById("arrival").value);
+  const travelHour = Math.max(7, arrivalHour - 1);
+  const travelMin = mockData.hourly[travelHour]?.up ?? 65;
+
+  const depTotalMin = arrivalHour * 60 - travelMin;
+  const depH = Math.floor(depTotalMin / 60);
+  const depM = Math.round(depTotalMin % 60);
+
+  document.getElementById("departure-text").textContent =
+    `${depH}:${String(depM).padStart(2, "0")} 頃に出発`;
+  document.getElementById("detail-text").textContent =
+    `推定所要時間: 約${travelMin}分（${travelHour}時台の交通状況で算出）`;
+
+  // Update table
+  const ratio = getCongestionRatio(travelHour);
+  const tbody = document.getElementById("section-table");
+  const rows = mockData.sections.map(sec => {
+    const t = calcSectionTime(sec, ratio);
+    return { ...sec, time: t };
+  });
+  const totalTime = rows.reduce((s, r) => s + r.time, 0);
+  const maxTime = Math.max(...rows.map(r => r.time));
+
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.name}</td>
+      <td class="num">${r.dist.toFixed(1)} km</td>
+      <td class="num">${Math.round(r.time)} 分</td>
+      <td class="bar-cell"><div class="bar" style="width:${(r.time / maxTime * 100).toFixed(0)}%"></div></td>
+    </tr>
+  `).join("") + `
+    <tr class="total-row">
+      <td>合計</td>
+      <td class="num">${totalDist.toFixed(1)} km</td>
+      <td class="num">${Math.round(totalTime)} 分</td>
+      <td></td>
+    </tr>`;
+
+  // Update chart highlight
+  updateChartHighlight(travelHour);
+}
+
+document.getElementById("arrival").addEventListener("change", update);
+
+// --- Chart ---
+const hours = Object.keys(mockData.hourly).map(Number);
+const upTimes = hours.map(h => mockData.hourly[h].up);
+
+const bgColors = hours.map(() => "rgba(74, 108, 247, 0.15)");
+const borderColors = hours.map(() => "rgba(74, 108, 247, 1)");
+
+const chart = new Chart(document.getElementById("chart"), {
+  type: "bar",
+  data: {
+    labels: hours.map(h => `${h}時`),
+    datasets: [{
+      label: "推定所要時間（分）",
+      data: upTimes,
+      backgroundColor: bgColors,
+      borderColor: borderColors,
+      borderWidth: 2,
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => `約${ctx.raw}分` } }
+    },
+    scales: {
+      y: {
+        min: 50, max: 105,
+        title: { display: true, text: "所要時間（分）" },
+        grid: { color: "#f1f5f9" }
+      },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+function updateChartHighlight(activeHour) {
+  const idx = hours.indexOf(activeHour);
+  chart.data.datasets[0].backgroundColor = hours.map((_, i) =>
+    i === idx ? "rgba(74, 108, 247, 0.5)" : "rgba(74, 108, 247, 0.15)"
+  );
+  chart.data.datasets[0].borderColor = hours.map((_, i) =>
+    i === idx ? "rgba(30, 58, 138, 1)" : "rgba(74, 108, 247, 1)"
+  );
+  chart.update();
+}
+
+// Initial render
+update();
+</script>
+</body>
+</html>

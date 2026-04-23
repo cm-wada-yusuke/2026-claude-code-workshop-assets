@@ -1,0 +1,54 @@
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# エディタ・IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 環境変数
+.env
+.env.local
+.env.*.local
+
+# ログ
+*.log
+logs/
+
+# Claude Code（個人設定はコミットしない）
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Python 仮想環境
+.venv/
+venv/
+env/
+
+# Node.js
+node_modules/
+.next/
+out/
+.turbo/
+
+# TypeScript ビルド成果物
+*.tsbuildinfo
+*.d.ts.map
+
+# パッケージマネージャ
+# pnpm-store/ や yarn キャッシュなど必要に応じて追加

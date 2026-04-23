@@ -1,0 +1,8 @@
+id,name,day,period,credits,category,priority
+CS101,プログラミング基礎,月,1,2,必修,high
+CS102,データ構造,火,2,2,必修,high
+CS202,データベース,水,3,2,選択必修A,high
+CS203,ネットワーク,木,1,2,選択必修A,medium
+BIZ101,経営学入門,月,2,2,選択,medium
+BIZ102,マーケティング,火,1,2,選択,high
+LANG101,英語,金,2,1,必修,high

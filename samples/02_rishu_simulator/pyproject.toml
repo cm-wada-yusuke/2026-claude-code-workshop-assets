@@ -1,0 +1,20 @@
+[project]
+name = "jiji"
+version = "0.1.0"
+description = "履修候補CSVから時間割の衝突・週マップ・単位数サマリを表示するCLIツール"
+readme = "README.md"
+authors = [
+    { name = "waddy", email = "wada.yusuke@classmethod.jp" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.1",
+    "rich>=13.7",
+]
+
+[project.scripts]
+jiji = "jiji.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
